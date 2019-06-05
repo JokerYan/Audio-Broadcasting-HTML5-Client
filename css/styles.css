@@ -1,0 +1,15 @@
+.title {
+    margin: auto;
+    text-align: center;
+    padding-bottom: 30px;
+}
+
+div.name{
+    width: 350px;
+    margin: auto;
+}
+
+ul#targetNameList{
+    width: 300px;
+    margin: auto;
+}
