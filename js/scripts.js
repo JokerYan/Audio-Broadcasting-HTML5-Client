@@ -1,23 +1,34 @@
 var ws;
 var audio;
 var context;
-var timing = 200 / 1000;
-var bufferList = [];
-var bufferStoreIndex = 0;
-var bufferPlayIndex = 0;
-var myName;
+var clientChannelMap;
+
 var bufferLength = 5;
-var calibrationCount = 0;
+var myName;
+
 
 (function(){
    console.log("function called");
-   myName = performance.now().toString();
+   myName = Math.round((performance.now() * 10000)).toString();
    document.getElementById("myName").innerHTML = myName;
    audio = document.getElementById('audio');
-   for(let i = 0; i < bufferLength; i++){
-      bufferList.push([]);
-   }
+   clientChannelMap = new Map();
 })();
+
+class ClientChannel{
+   constructor(name){
+      this.name = name;
+      this.timing = 200 / 1000;
+      this.bufferList = [];
+      this.bufferStoreIndex = 0;
+      this.bufferPlayIndex = 0;
+      this.calibrateCount = 0;
+      
+      for(let i = 0; i < bufferLength; i++){
+         this.bufferList.push([]);
+      }
+   }
+}
 
 function startConnection(){
    console.log("Connection Starting...");
@@ -25,30 +36,35 @@ function startConnection(){
    WebSocketInit();
 }
 
-function appendBuffer(pcm){
+function appendBuffer(name, pcm){
    for (let i = 0; i < 100; i++) {
       pcm[i] = pcm[i] * i / 100; //fade in
       pcm[pcm.length - i - 1] = pcm[pcm.length - i - 1] * i / 100;   //fade out
    }
-   bufferList[bufferStoreIndex] = pcm;
-   bufferStoreIndex = (bufferStoreIndex + 1) % bufferList.length;
-   PlayAudio();
+   var client = clientChannelMap.get(name);
+   client.bufferList[client.bufferStoreIndex] = pcm;
+   client.bufferStoreIndex = (client.bufferStoreIndex + 1) % client.bufferList.length;
+   PlayAudio(name);
 }
 
-function clearOffset(){
-   bufferList = [];
+function clearOffset(name){
+   var client = clientChannelMap.get(name);
+
+   client.bufferList = [];
    for(let i = 0; i < bufferLength; i++){
-      bufferList.push([]);
+      client.bufferList.push([]);
    }
-   bufferStoreIndex = 0;
-   bufferPlayIndex = 0;
-   calibrationCount = 0;
-   console.log("offset cleared");
+   client.bufferStoreIndex = 0;
+   client.bufferPlayIndex = 0;
+   client.calibrationCount = 0;
+   console.log("offset cleared for: " + client.name.toString());
 }
 
-function PlayAudio(){
-   pcm = bufferList[bufferPlayIndex]
-   bufferPlayIndex = (bufferPlayIndex + 1) % bufferList.length;
+function PlayAudio(name){
+   var client = clientChannelMap.get(name);
+
+   var pcm = client.bufferList[client.bufferPlayIndex]
+   client.bufferPlayIndex = (client.bufferPlayIndex + 1) % client.bufferList.length;
 
    var source = context.createBufferSource();
    var buffer = context.createBuffer(1, pcm.length, 48000);
@@ -56,17 +72,17 @@ function PlayAudio(){
    buffer.getChannelData(0).set(pcm);
    source.connect(context.destination);
    source.buffer = buffer;
-   if(timing < context.currentTime){
+   if(client.timing < context.currentTime){
       // timing = context.currentTime + 30 / 1000;
-      console.log("recalibrated..." + timing.toString() + " -> " + context.currentTime.toString());
-      timing = context.currentTime + 100 / 1000;
-      calibrationCount += 1;
-      if(calibrationCount >= bufferLength){
-         clearOffset();
+      console.log("recalibrated..." + client.timing.toString() + " -> " + context.currentTime.toString());
+      client.timing = context.currentTime + 100 / 1000;
+      client.calibrationCount += 1;
+      if(client.calibrationCount >= bufferLength){
+         clearOffset(name);
       }
    }else{
-      source.start(timing);
-      timing += buffer.duration;
+      source.start(client.timing);
+      client.timing += buffer.duration;
    }
 }
 
@@ -128,7 +144,8 @@ function WebSocketInit() {
             }
          }else{
             console.log("Audio Received");
-            appendBuffer(deserializePCM(received_data));
+            let [name, pcm] = deserializePCM(received_data);
+            appendBuffer(name, pcm);
          }
       };
 
@@ -144,13 +161,24 @@ function WebSocketInit() {
 }
 
 function serializePCM(pcm){
-   result = new Float32Array(pcm);
+   nameArray = new Float32Array(1);
+   nameArray[0] = myName;
+   result = new Float32Array(concatTypedArray(nameArray, pcm));
    return result;
 }
 
 function deserializePCM(arrayBuffer){
    result = new Float32Array(arrayBuffer);
-   return result;
+   audioBuffer = result.slice(1);
+   name = Math.round(result[0]).toString();
+   return [name, audioBuffer];
+}
+
+function concatTypedArray(a, b){
+   var c = new (a.constructor)(a.length + b.length);
+   c.set(a, 0);
+   c.set(b, a.length);
+   return c;
 }
 
 function updateTargetNames(nameArray){
@@ -166,7 +194,8 @@ function updateTargetNames(nameArray){
    while(ul.lastChild){
       ul.removeChild(ul.lastChild);
    }
-   for(let name of nameArray){
+   for(let nameRaw of nameArray){
+      name = Math.round(parseFloat(nameRaw));
       let li = document.createElement("li");
       let checkbox = document.createElement("input");
       checkbox.type = "checkbox";
@@ -195,10 +224,21 @@ function updateSubscription(){
    let targetNames = []
    for(let checkbox of checkboxList){
       if(checkbox.checked){
-         targetNames.push(checkbox.value);
+         name = checkbox.value;
+         targetNames.push(name);
+         if(clientChannelMap.get(name) == undefined){
+            clientChannelMap.set(name, new ClientChannel(name));
+         }
+      }
+   }
+   for(let client of clientChannelMap){
+      if(targetNames.indexOf(client.name) == -1){
+         clientChannelMap.delete(client.name);
       }
    }
    jsonString = JSON.stringify({"type": "update subscription", "targetNames": targetNames, "clientName": myName});
    ws.send(jsonString);
-   clearOffset();
+   for(let name of targetNames){
+      clearOffset(name);
+   }
 }
