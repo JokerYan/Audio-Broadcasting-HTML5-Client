@@ -147,9 +147,7 @@ function WebSocketInit() {
                updateTargetNames(JSON.parse(jsonObject.names));
             }
          }else{
-            console.log("Audio Received");
-            let [name, pcm] = deserializePCM(received_data);
-            appendBuffer(name, pcm);
+            processAudio(received_data);
          }
       };
 
@@ -162,6 +160,12 @@ function WebSocketInit() {
      // The browser doesn't support WebSocket
      alert("WebSocket NOT supported by your Browser!");
    }
+}
+
+async function processAudio(received_data){
+   console.log("Audio Received");
+   let [name, pcm] = deserializePCM(received_data);
+   appendBuffer(name, pcm);
 }
 
 function serializePCM(pcm){
