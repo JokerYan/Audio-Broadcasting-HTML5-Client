@@ -13,7 +13,7 @@
 <body>
     <div class="title">
         <h2>Audio Combined</h2>
-        <button onclick="startConnection()">Start</button>
+        <button id="startBtn" onclick="startConnection()">Start</button>
     </div>
     <audio id="audio" autoplay></audio>
     <div class="name">
@@ -21,6 +21,13 @@
         <label id="myName"></label>   
     </div>
     <ul id="targetNameList"></ul>
+    <div class="serverIp">
+        <label>Server IP: </label>
+        <select id="serverIpSelect" onchange="changeIp()">
+            <option value="ws://127.0.0.1:9998/">ws://127.0.0.1:9998/</option>
+            <option value="ws://192.168.1.191:9998/">ws://192.168.1.191:9998/</option>
+        </select>
+    </div>
 
     <script src="js/scripts.js"></script>
 </body>

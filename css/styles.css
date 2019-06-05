@@ -5,11 +5,18 @@
 }
 
 div.name{
-    width: 350px;
+    width: fit-content;
     margin: auto;
 }
 
 ul#targetNameList{
-    width: 300px;
+    padding-right: 30px;
+    width: fit-content;
     margin: auto;
+}
+
+div.serverIp{
+    width: fit-content;
+    margin: auto;
+    padding-top: 50px;
 }

@@ -5,6 +5,7 @@ var clientChannelMap;
 
 var bufferLength = 5;
 var myName;
+var serverIp;
 
 
 (function(){
@@ -12,6 +13,7 @@ var myName;
    myName = Math.round((performance.now() * 10000)).toString();
    document.getElementById("myName").innerHTML = myName;
    audio = document.getElementById('audio');
+   serverIp = document.getElementById("serverIpSelect").value;
    clientChannelMap = new Map();
 })();
 
@@ -33,6 +35,8 @@ class ClientChannel{
 function startConnection(){
    console.log("Connection Starting...");
    context = new AudioContext();
+   document.getElementById("serverIpSelect").disabled = true;
+   document.getElementById("startBtn").disabled = true;
    WebSocketInit();
 }
 
@@ -122,7 +126,7 @@ function WebSocketInit() {
    //   alert("WebSocket is supported by your Browser!");
      
       // Let us open a web socket
-      ws = new WebSocket("ws://127.0.0.1:9998/");
+      ws = new WebSocket(serverIp);
       ws.binaryType = "arraybuffer";
 
       ws.onopen = function() {
@@ -241,4 +245,8 @@ function updateSubscription(){
    for(let name of targetNames){
       clearOffset(name);
    }
+}
+
+function changeIp(){
+   serverIp = document.getElementById("serverIpSelect").value;
 }
